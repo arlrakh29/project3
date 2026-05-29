@@ -1,122 +1,151 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from "react";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [inventory, setInventory] = useState({
+    item: "",
+    quantity: "",
+  });
+
+  const [items, setItems] = useState([]);
+  const [editId, setEditId] = useState(null); // Track by DB _id instead of index
+
+  const API_URL = "http://localhost:5000/api/inventory";
+
+  // Fetch items from database on component mount
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  async function fetchItems() {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      setItems(data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  }
+
+  function handleChange(e) {
+    setInventory({
+      ...inventory,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+
+    if (editId) {
+      // Edit existing row in database
+      try {
+        const response = await fetch(`${API_URL}/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inventory),
+        });
+        const updatedItem = await response.json();
+        
+        // Update local state
+        const copy = items.map((item) => 
+          item._id === editId ? updatedItem : item
+        );
+        setItems(copy);
+        setEditId(null);
+      } catch (error) {
+        console.error("Error updating item:", error);
+      }
+    } else {
+      // Add new row to database
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inventory),
+        });
+        const savedItem = await response.json();
+        
+        // Update local state with the returned DB object (which includes the new _id)
+        setItems([...items, savedItem]);
+      } catch (error) {
+        console.error("Error saving item:", error);
+      }
+    }
+
+    // Clear form
+    setInventory({
+      item: "",
+      quantity: "",
+    });
+  }
+
+  async function deleteItem(id) {
+    try {
+      await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+      });
+      // Remove from local state
+      setItems(items.filter((item) => item._id !== id));
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
+  }
+
+  function editItem(item) {
+    // Populate form with current item values
+    setInventory({
+      item: item.item,
+      quantity: item.quantity,
+    });
+    setEditId(item._id);
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+    <div>
+      <h1>WEST WING INVENTORY</h1>
+
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="item"
+          placeholder="Item"
+          value={inventory.item}
+          onChange={handleChange}
+        />
+
+        <input
+          type="text"
+          name="quantity"
+          placeholder="Quantity"
+          value={inventory.quantity}
+          onChange={handleChange}
+        />
+
+        <button type="submit">
+          {editId ? "Update" : "Submit"}
         </button>
-      </section>
+      </form>
 
-      <div className="ticks"></div>
+      <h2>Inventory</h2>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {/* Note: Using thing._id as the key now */}
+      {items.map((thing) => (
+        <div key={thing._id} className="row">
+          <span>{thing.quantity}</span>
+          <span>{thing.item}</span>
+
+          <button onClick={() => editItem(thing)}>
+            Edit
+          </button>
+
+          <button onClick={() => deleteItem(thing._id)}>
+            Delete
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      ))}
+    </div>
+  );
 }
 
-export default App
+export default App;
